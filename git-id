@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: git-id [uni|personal|show]"
+  exit 1
+}
+
+# ensure we're inside a git repo
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Error: not inside a Git repository."
+  exit 1
+fi
+
+mode="${1:-}"
+case "$mode" in
+  uni)
+    git config user.name  "Rawnak Deepto"
+    git config user.email "z5636476@ad.unsw.edu.au"
+    ;;
+  personal)
+    git config --local --unset-all user.name  >/dev/null 2>&1 || true
+    git config --local --unset-all user.email >/dev/null 2>&1 || true
+    ;;
+  show)
+    echo "Repo: $(git rev-parse --show-toplevel)"
+    echo -n "user.name  = "
+    git config --get user.name  || echo "(not set locally; using default/global)"
+    echo -n "user.email = "
+    git config --get user.email || echo "(not set locally; using default/global)"
+    exit 0
+    ;;
+  *)
+    usage
+    ;;
+esac
+
+echo "Repo: $(git rev-parse --show-toplevel)"
+echo "user.name  = $(git config user.name || true)"
+echo "user.email = $(git config user.email || true)"
