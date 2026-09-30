@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Compile .tex files to PDF and delete LaTeX residue, keeping only .tex and .pdf.
+# Usage: textopdf [file.tex | dir ...]   (default: current directory)
+# Directories are searched recursively. For each file, the nearest ancestor
+# directory containing a .sty file is added to TEXINPUTS, so shared style
+# files and images at a project root are found from any subfolder.
+
+if ! command -v latexmk >/dev/null; then
+  echo "textopdf: latexmk not found" >&2
+  exit 1
+fi
+
+[ $# -eq 0 ] && set -- .
+
+files=()
+for arg in "$@"; do
+  if [ -d "$arg" ]; then
+    while IFS= read -r -d '' f; do files+=("$f"); done < <(find "$arg" -name '*.tex' -print0 | sort -z)
+  elif [ -f "$arg" ]; then
+    files+=("$arg")
+  else
+    echo "textopdf: no such file or directory: $arg" >&2
+  fi
+done
+
+# Print the nearest ancestor of $1 (inclusive) that contains a .sty file
+sty_root() {
+  local d
+  d="$(cd "$1" && pwd)"
+  while [ "$d" != "/" ]; do
+    compgen -G "$d/*.sty" >/dev/null && { echo "$d"; return; }
+    d="$(dirname "$d")"
+  done
+}
+
+status=0
+for f in "${files[@]}"; do
+  # Skip files with no content outside comments
+  if ! grep -qv '^[[:space:]]*\(%.*\)\?$' "$f"; then
+    echo "SKIP $f (only comments)"
+    continue
+  fi
+  root="$(sty_root "$(dirname "$f")")"
+  if TEXINPUTS="${root:+$root//:}" latexmk -pdf -interaction=nonstopmode -cd "$f" >/dev/null 2>&1; then
+    echo "OK   $f"
+    latexmk -c -cd "$f" >/dev/null 2>&1
+  else
+    echo "FAIL $f (see ${f%.tex}.log)"
+    status=1
+  fi
+done
+exit $status
