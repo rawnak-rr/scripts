@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Error: run git-update from inside the parent Git repository."
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+git switch main
+git pull --ff-only origin main
+
+git submodule foreach --recursive '
+  git fetch origin &&
+  if git show-ref --verify --quiet refs/heads/main; then
+    git switch main
+  else
+    git switch --track -c main origin/main
+  fi &&
+  git pull --ff-only origin main
+'
